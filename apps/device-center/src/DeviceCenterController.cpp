@@ -63,7 +63,14 @@ void DeviceCenterController::_applySnapshot(const QByteArray& data) {
     _connected = s.value("connected").toBool();
     _connectionState = s.value("connectionState").toString("disconnected");
     if (s.contains("name")) _deviceName = s.value("name").toString();
-    if (s.contains("address")) _deviceAddress = s.value("address").toString();
+    if (s.contains("address")) {
+        const auto address = s.value("address").toString();
+        if (!address.isEmpty() && address != _deviceAddress) {
+            _ambientLevel = 10;
+            _focusOnVoice = false;
+        }
+        _deviceAddress = address;
+    }
     if (!s.contains("features")) {
         _batteryLevel = -1; _noiseControlMode = "unknown";
         emit stateChanged(); return;
@@ -78,7 +85,13 @@ void DeviceCenterController::_applySnapshot(const QByteArray& data) {
     _isCharging = _connected && battery.value("charging").toBool();
     const auto nc = s.value("noiseControl").toObject();
     _noiseControlMode = _connected && valid("noiseControl") ? nc.value("mode").toString() : "unknown";
-    _ambientLevel = nc.value("ambientLevel").toInt(); _focusOnVoice = nc.value("focusOnVoice").toBool();
+    // ANC/Off replies contain zero, which is not a valid Ambient command.
+    // Keep the last confirmed Ambient choice so switching back works.
+    const auto level = nc.value("ambientLevel").toInt();
+    if (_noiseControlMode == "ambient" && level >= 1 && level <= 20) {
+        _ambientLevel = level;
+        _focusOnVoice = nc.value("focusOnVoice").toBool();
+    }
     const auto eq = s.value("equalizer").toObject();
     _equalizerPreset = valid("equalizer") ? eq.value("preset").toInt() : -1;
     _equalizerPresetName = valid("equalizer") ? eq.value("presetName").toString() : "Unknown";

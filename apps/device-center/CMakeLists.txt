@@ -149,6 +149,16 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING AND UNIX AND NOT APPLE)
+    if(TARGET Qt6::Test)
+        add_executable(sony-ui-preview
+            ../../tests/ui/RenderPreview.cpp
+            src/DeviceCenterController.cpp include/DeviceCenterController.h
+            src/DeviceBackend.cpp include/DeviceBackend.h
+            src/I18nManager.cpp include/I18nManager.h qml.qrc)
+        target_include_directories(sony-ui-preview PRIVATE include)
+        target_compile_definitions(sony-ui-preview PRIVATE SONY_DEVICE_CENTER_VERSION="${SonyDeviceCenter_VERSION}")
+        target_link_libraries(sony-ui-preview PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::Test sony-core)
+    endif()
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_FOUND)
         add_test(NAME simulated-app-smoke
