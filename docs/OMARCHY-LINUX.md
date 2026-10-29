@@ -48,9 +48,12 @@ The headset must be powered on and paired over Bluetooth. USB is for charging:
 [Sony documents that the XM4 cannot operate while charging](https://helpguide.sony.net/mdr/wh1000xm4/v1/en/contents/TP0002752803.html).
 When disconnected, readings remain unknown; no demo values are used in the app.
 
-The app controls Sony settings. It does not fix the separate HFP/mSBC/CVSD audio
-transport failure previously observed on this host. Keep the webcam microphone
-and LDAC playback until an actual headset-microphone test succeeds.
+A physical microphone capture succeeded after temporarily enabling WirePlumber's
+`bluetooth.autoswitch-to-headset-profile` setting. It exposed the Sony input and
+switched profiles for recording. The original setting, profile, default source,
+default sink and mute state were restored after the test. No recording was saved.
+Earlier input discovery missed node names containing colons; those failures do
+not establish a broken headset or Bluetooth driver.
 
 ## Visual checks
 
@@ -69,17 +72,21 @@ connection mode and setting readback. ACK alone does not establish audible succe
 - Native build: GCC 16.2.1, Qt 6.12.0, BlueZ 5.87, CMake 4.4.4.
 - Full CTest suite: 137/137 passed (buildq 1165), including the new Ambient
   preference regression, worker integration and actual QML startup.
-- Final production build: buildq 1170; affected Qt tests: 2/2 passed (1171).
-- Final visual helper build: 1172. All successful receipts report matching
-  source before/after. An earlier helper build failed on a missing QQuickItem
-  include; it was corrected before the successful build.
+- Polished interface build: buildq 1178; affected Qt tests: 2/2 passed (1179).
 - Real QML rendered at 1180×780 and 980×660: 12 images, Return-key navigation
-  passed for all six pages at both sizes. No QML errors in the render log.
-- User-local installation succeeded; the native Wayland window is mapped and
-  the private daemon socket responds. The webcam remains the default microphone.
-- Hardware control is **not verified**: XM4 is paired but unavailable while
-  charging over USB. A connection attempt returned `br-connection-page-timeout`.
-  No ANC/Ambient/EQ writes were sent to the physical headset.
+  passed for all six pages at both sizes. Both overview sizes were inspected.
+- Physical WH-1000XM4, firmware 2.5.2, Bluetooth protocol V1, LDAC:
+  ANC and Ambient level 10 confirmed by independent fresh readback. A second
+  test confirmed Ambient level 11 with Focus on Voice, Bass Boost EQ and
+  restoration to the original Ambient 20/no voice focus and EQ Off settings.
+  Speak-to-Chat was read as enabled; its toggle was not tested.
+- DSEE Extreme and automatic power-off exist on the XM4, but this app's V1
+  implementation does not expose them. Adaptive Sound Control is mobile-app
+  automation and is different from the SDK's Adaptive Volume setting.
+- Sony microphone capture exited successfully: 974400 samples, mean -35.1 dB,
+  peak -0.4 dB. This verifies captured signal, not subjective speech quality.
+  Automatic microphone profile switching was enabled temporarily and restored.
+- Digital setting readback does not confirm subjective audible effects.
 
 These images show the actual application with the isolated **XM5 simulator**,
 not live readings from the user's XM4:

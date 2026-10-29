@@ -15,7 +15,8 @@ ApplicationWindow {
 
     footer: Rectangle {
         color: window.surface
-        height: statusText.implicitHeight + 24
+        height: controller.lastError.length || controller.busy ? statusText.implicitHeight + 24 : 0
+        visible: height > 0
         Text {
             id: statusText
             anchors.fill: parent
@@ -40,14 +41,14 @@ ApplicationWindow {
     // DESIGN TOKENS
     // Every color in this file comes from here. No orphan hex.
     // ==========================================================
-    readonly property color bg:            "#0A0B0F"
-    readonly property color surface:       "#14161E"
-    readonly property color surfaceHi:     "#1B1E29"
+    readonly property color bg:            "#101116"
+    readonly property color surface:       "#191B24"
+    readonly property color surfaceHi:     "#232632"
     readonly property color surfaceSunk:   "#0E1016"
-    readonly property color line:          "#22252F"
+    readonly property color line:          "#303341"
     readonly property color lineHi:        "#2F3341"
 
-    readonly property color accent:        "#7C5CFF"
+    readonly property color accent:        "#9475FF"
     readonly property color accentSoft:    "#A78BFA"
     readonly property color ambientWarm:   "#F2A73B"
     readonly property color success:       "#2DD4A7"
@@ -55,7 +56,7 @@ ApplicationWindow {
 
     readonly property color txt:           "#F4F6FA"
     readonly property color txtDim:        "#98A1B2"
-    readonly property color txtFaint:      "#5C6473"
+    readonly property color txtFaint:      "#8992A5"
 
     // Mono face for the wordmark. Resolved against the installed families
     // rather than set through font.families: that property makes the engine
@@ -711,12 +712,6 @@ ApplicationWindow {
                                     radius: 3
                                     color: controller.connected ? window.success : window.danger
 
-                                    SequentialAnimation on opacity {
-                                        running: controller.connected
-                                        loops: Animation.Infinite
-                                        NumberAnimation { to: 0.3; duration: 1100; easing.type: Easing.InOutQuad }
-                                        NumberAnimation { to: 1.0; duration: 1100; easing.type: Easing.InOutQuad }
-                                    }
                                 }
                                 Text {
                                     textFormat: Text.PlainText
@@ -842,21 +837,21 @@ ApplicationWindow {
                         anchors.rightMargin: 13
                         spacing: 9
 
-                        Glyph { path: window.icons.bluetooth; size: 15; color: window.success }
+                        Glyph { path: window.icons.bluetooth; size: 15; color: controller.connected ? window.success : window.txtFaint }
 
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: 0
                             Text {
                                 textFormat: Text.PlainText
-                                text: "SDK Core"
+                                text: "Headset connection"
                                 color: window.txtDim
                                 font.pixelSize: 11
                                 font.weight: Font.Medium
                             }
                             Text {
                                 textFormat: Text.PlainText
-                                text: "Bluetooth · RFCOMM"
+                                text: controller.connected ? "Bluetooth connected" : "Waiting for headphones"
                                 color: window.txtFaint
                                 font.pixelSize: 10
                             }
@@ -866,7 +861,7 @@ ApplicationWindow {
                             Layout.preferredWidth: 7
                             Layout.preferredHeight: 7
                             radius: 3.5
-                            color: window.success
+                            color: controller.connected ? window.success : window.txtFaint
                         }
                     }
                 }
@@ -889,229 +884,202 @@ ApplicationWindow {
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 36
-                    spacing: 22
+                    spacing: 24
 
-                    // Header
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 10
-
                         ColumnLayout {
-                            spacing: 5
-                            Eyebrow { text: controller.connected ? "Connected Device" : "Offline" }
+                            spacing: 6
+                            Eyebrow { text: controller.connected ? "YOUR HEADPHONES" : "HEADPHONES OFFLINE" }
                             Text {
+                                text: controller.deviceName || "Sony headphones"
                                 textFormat: Text.PlainText
-                                text: controller.deviceName
                                 color: window.txt
                                 font.pixelSize: 30
                                 font.weight: Font.DemiBold
-                                font.letterSpacing: -0.7
+                                font.letterSpacing: -0.8
                             }
                         }
-
                         Item { Layout.fillWidth: true }
-
-                        // Compact status chips
                         Repeater {
                             model: [
-                                { k: "Codec", v: controller.codec },
-                                { k: "Battery", v: controller.batteryLevel >= 0 ? controller.batteryLevel + "%" : "Unknown" },
-                                { k: "Mode", v: controller.noiseControlMode === "unknown" ? "Unknown" : controller.noiseControlMode === "cancelling" ? "ANC"
-                                              : controller.noiseControlMode === "ambient" ? "Ambient" : "Off" }
+                                { k: "Codec", v: controller.connected ? controller.codec : "—" },
+                                { k: "Battery", v: controller.connected && controller.batteryLevel >= 0 ? controller.batteryLevel + "%" : "—" }
                             ]
-
                             delegate: Rectangle {
-                                id: statChip
                                 required property var modelData
-                                implicitWidth: chipCol.implicitWidth + 30
-                                implicitHeight: 54
+                                implicitWidth: statusColumn.implicitWidth + 32
+                                implicitHeight: 56
                                 radius: 14
                                 color: window.surface
                                 border.width: 1
                                 border.color: window.line
-
                                 ColumnLayout {
-                                    id: chipCol
+                                    id: statusColumn
                                     anchors.centerIn: parent
-                                    spacing: 3
-                                    Eyebrow {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        text: statChip.modelData.k
-                                    }
+                                    spacing: 4
+                                    Eyebrow { text: modelData.k; Layout.alignment: Qt.AlignHCenter }
                                     Text {
-                                        textFormat: Text.PlainText
-                                        Layout.alignment: Qt.AlignHCenter
-                                        text: statChip.modelData.v
+                                        text: modelData.v
                                         color: window.txt
-                                        font.pixelSize: 14
+                                        font.pixelSize: 15
                                         font.weight: Font.DemiBold
+                                        Layout.alignment: Qt.AlignHCenter
                                     }
                                 }
                             }
                         }
                     }
 
-                    // Hero
                     Card {
+                        id: listeningStage
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        radius: 24
+                        radius: 28
                         clip: true
+                        readonly property color modeTint: !controller.connected ? window.txtDim
+                            : controller.noiseControlMode === "ambient" ? window.ambientWarm
+                            : controller.noiseControlMode === "cancelling" ? window.accent : window.txtDim
 
-                        ColumnLayout {
-                            anchors.centerIn: parent
-                            spacing: 4
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 28
+                            spacing: 24
 
-                            // The aura belongs to the product, not the card.
-                            // Centering it here keeps the rings off the labels.
                             Item {
-                                id: heroStage
-                                Layout.alignment: Qt.AlignHCenter
-                                Layout.preferredWidth: 290
-                                Layout.preferredHeight: 290
-
+                                id: productStage
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                Layout.minimumWidth: 170
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.top: parent.top
+                                    text: "SONY / WIRELESS"
+                                    font.family: window.monoFamily
+                                    font.pixelSize: 10
+                                    font.letterSpacing: 2
+                                    color: window.txtFaint
+                                }
                                 Bloom {
                                     anchors.centerIn: parent
-                                    z: -1
-                                    width: 470; height: 470
-                                    tint: controller.noiseControlMode === "unknown" ? window.txtDim : controller.noiseControlMode === "cancelling" ? window.accent
-                                        : controller.noiseControlMode === "ambient" ? window.ambientWarm
-                                        : window.txtFaint
-                                    strength: controller.noiseControlMode === "off" ? 0.05 : 0.18
-                                    Behavior on strength { NumberAnimation { duration: window.tSlow } }
+                                    width: Math.max(parent.width, parent.height) * 1.4
+                                    height: width
+                                    tint: listeningStage.modeTint
+                                    strength: controller.connected ? 0.24 : 0.07
                                 }
-
-                                // Concentric rings. ANC pulls inward, Ambient opens outward.
                                 Repeater {
                                     model: 3
                                     delegate: Rectangle {
-                                        id: auraRing
                                         required property int index
-                                        readonly property bool inward: controller.noiseControlMode === "cancelling"
-                                        readonly property bool live: controller.noiseControlMode !== "off"
-
                                         anchors.centerIn: parent
-                                        z: -1
-                                        width: 252 + index * 58
+                                        width: Math.min(productStage.width, productStage.height) * (0.78 + index * 0.22)
                                         height: width
                                         radius: width / 2
                                         color: "transparent"
                                         border.width: 1
-                                        border.color: inward ? window.accent : window.ambientWarm
-                                        opacity: 0
-                                        visible: live
-
-                                        SequentialAnimation {
-                                            running: auraRing.live
-                                            loops: Animation.Infinite
-                                            PauseAnimation { duration: auraRing.index * 700 }
-                                            ParallelAnimation {
-                                                NumberAnimation {
-                                                    target: auraRing; property: "opacity"
-                                                    from: 0.0; to: 0.28
-                                                    duration: 900; easing.type: Easing.OutQuad
-                                                }
-                                                NumberAnimation {
-                                                    target: auraRing; property: "scale"
-                                                    from: auraRing.inward ? 1.12 : 0.90
-                                                    to: 1.0
-                                                    duration: 900; easing.type: Easing.OutQuad
-                                                }
-                                            }
-                                            ParallelAnimation {
-                                                NumberAnimation {
-                                                    target: auraRing; property: "opacity"
-                                                    to: 0.0
-                                                    duration: 1200; easing.type: Easing.InQuad
-                                                }
-                                                NumberAnimation {
-                                                    target: auraRing; property: "scale"
-                                                    to: auraRing.inward ? 0.88 : 1.14
-                                                    duration: 1200; easing.type: Easing.InQuad
-                                                }
-                                            }
-                                            PauseAnimation { duration: 400 }
-                                        }
+                                        border.color: listeningStage.modeTint
+                                        opacity: controller.connected ? 0.25 - index * 0.065 : 0.08
                                     }
                                 }
-
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.bottom: parent.bottom
+                                    text: controller.deviceName.indexOf("1000X") !== -1 ? "1000X" : "SONY"
+                                    font.pixelSize: Math.min(productStage.width * 0.28, 108)
+                                    font.weight: Font.Black
+                                    font.letterSpacing: -5
+                                    color: window.txt
+                                    opacity: 0.055
+                                }
                                 Image {
-                                    anchors.fill: parent
+                                    anchors.centerIn: parent
+                                    width: Math.min(productStage.width * 1.12, 370)
+                                    height: Math.min(productStage.height - 56, 390)
                                     fillMode: Image.PreserveAspectFit
                                     source: "../" + controller.heroImagePath
-                                    opacity: controller.connected ? 1.0 : 0.35
-                                    scale: heroHover.hovered ? 1.06 : 1.0
-
-                                    Behavior on scale { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
-                                    Behavior on opacity { NumberAnimation { duration: window.tSlow } }
-
-                                    HoverHandler { id: heroHover }
+                                    rotation: -9
+                                    opacity: controller.connected ? 1 : 0.6
                                 }
                             }
 
-                            Text {
-                                textFormat: Text.PlainText
-                                Layout.alignment: Qt.AlignHCenter
-                                Layout.topMargin: 10
-                                text: controller.noiseControlMode === "unknown" ? "Unknown" : controller.noiseControlMode === "cancelling" ? "Noise Cancelling"
-                                    : controller.noiseControlMode === "ambient" ? "Ambient Sound"
-                                    : "Processing Off"
-                                color: window.txt
-                                font.pixelSize: 18
-                                font.weight: Font.DemiBold
-                                font.letterSpacing: -0.2
-                            }
-
-                            Text {
-                                textFormat: Text.PlainText
-                                Layout.alignment: Qt.AlignHCenter
-                                Layout.topMargin: 2
-                                text: controller.noiseControlMode === "unknown" ? "Unknown" : controller.noiseControlMode === "cancelling" ? "The outside world is sealed out"
-                                    : controller.noiseControlMode === "ambient" ? "Level " + controller.ambientLevel + " · hearing your surroundings"
-                                    : "Straight signal, no processing"
-                                color: window.txtFaint
-                                font.pixelSize: 12
-                            }
-
-                            // Quick actions
-                            RowLayout {
-                                Layout.alignment: Qt.AlignHCenter
-                                Layout.topMargin: 30
-                                spacing: 11
-
+                            ColumnLayout {
+                                Layout.preferredWidth: 240
+                                Layout.maximumWidth: 270
+                                Layout.fillHeight: true
+                                spacing: 12
+                                Item { Layout.fillHeight: true }
+                                RowLayout {
+                                    spacing: 7
+                                    Rectangle {
+                                        width: 6; height: 6; radius: 3
+                                        color: controller.connected ? window.success : window.txtFaint
+                                    }
+                                    Eyebrow { text: controller.connected ? "LISTENING MODE" : "WAITING FOR BLUETOOTH" }
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: !controller.connected ? "Connect your\nheadphones"
+                                        : controller.noiseControlMode === "cancelling" ? "Noise\ncancelling"
+                                        : controller.noiseControlMode === "ambient" ? "Ambient\nsound"
+                                        : controller.noiseControlMode === "off" ? "Noise control\noff" : "Reading\nheadphones…"
+                                    color: window.txt
+                                    font.pixelSize: window.height < 720 ? 34 : 42
+                                    font.weight: Font.DemiBold
+                                    font.letterSpacing: -1.5
+                                    lineHeight: 0.98
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: !controller.connected ? "Switch on your headphones and connect over Bluetooth." + (controller.deviceName.indexOf("WH-1000XM4") !== -1 ? " XM4 cannot connect while USB charging." : "")
+                                        : controller.noiseControlMode === "ambient" ? "Level " + controller.ambientLevel + " of 20" + (controller.focusOnVoice ? " · Focus on Voice" : " · Hear the room around you")
+                                        : controller.noiseControlMode === "cancelling" ? "Less outside noise. More room for what you want to hear."
+                                        : controller.noiseControlMode === "off" ? "Noise cancelling and ambient processing are off." : "Waiting for a confirmed setting from the headset."
+                                    wrapMode: Text.WordWrap
+                                    lineHeight: 1.25
+                                    color: window.txtDim
+                                    font.pixelSize: 13
+                                }
+                                Item { implicitHeight: 4 }
                                 PillButton {
+                                    Layout.fillWidth: true
+                                    compact: true
                                     text: "Noise Cancelling"
                                     glyphPath: window.icons.shield
-                                    tint: window.accent
-                                    active: controller.noiseControlMode === "cancelling"
-                                    onClicked: controller.setAnc(!active)
+                                    active: controller.connected && controller.noiseControlMode === "cancelling"
+                                    enabled: controller.connected && controller.hasAnc
+                                    onClicked: controller.setAnc(true)
                                 }
-
                                 PillButton {
-                                    text: "Ambient"
+                                    Layout.fillWidth: true
+                                    compact: true
+                                    text: "Ambient Sound"
                                     glyphPath: window.icons.mic
                                     tint: window.ambientWarm
-                                    active: controller.noiseControlMode === "ambient"
+                                    active: controller.connected && controller.noiseControlMode === "ambient"
+                                    enabled: controller.connected && controller.hasAmbient
                                     onClicked: controller.setAmbient(controller.ambientLevel, controller.focusOnVoice)
                                 }
-
                                 PillButton {
+                                    Layout.fillWidth: true
+                                    compact: true
                                     text: "Off"
                                     glyphPath: window.icons.power
                                     tint: window.txtDim
-                                    active: controller.noiseControlMode === "off"
+                                    active: controller.connected && controller.noiseControlMode === "off"
+                                    enabled: controller.connected && controller.hasAnc
                                     onClicked: controller.setNoiseControlOff()
                                 }
-                            }
-
-                            // Secondary: a link to another screen, not a fourth mode.
-                            PillButton {
-                                Layout.alignment: Qt.AlignHCenter
-                                Layout.topMargin: 12
-                                compact: true
-                                text: "EQ · " + controller.equalizerPresetName
-                                glyphPath: window.icons.sliders
-                                onClicked: window.navIndex = 2
+                                Item { implicitHeight: 4 }
+                                PillButton {
+                                    Layout.fillWidth: true
+                                    compact: true
+                                    text: "Equalizer · " + controller.equalizerPresetName
+                                    glyphPath: window.icons.sliders
+                                    enabled: controller.connected && controller.hasEqualizer
+                                    onClicked: window.navIndex = 2
+                                }
+                                Item { Layout.fillHeight: true }
                             }
                         }
                     }
@@ -1608,7 +1576,7 @@ ApplicationWindow {
                         }
                         Text {
                             textFormat: Text.PlainText
-                            text: "Upscaling, speak-to-chat, and power discipline."
+                            text: "Headset features, with confirmed state and model-specific availability."
                             color: window.txtDim
                             font.pixelSize: 13
                         }
@@ -1682,7 +1650,7 @@ ApplicationWindow {
                                         Text {
                                             textFormat: Text.PlainText
                                             Layout.fillWidth: true
-                                            text: !featCard.supported ? "Not supported" : !featCard.known ? "State unknown — waiting for device" : featCard.modelData.desc
+                                            text: !featCard.supported ? "Unavailable in this Linux app for this model" : !featCard.known ? "State unknown — waiting for device" : featCard.modelData.desc
                                             color: window.txtFaint
                                             font.pixelSize: 11
                                             wrapMode: Text.WordWrap
@@ -1742,7 +1710,7 @@ ApplicationWindow {
                                     Text {
                                         textFormat: Text.PlainText
                                         Layout.fillWidth: true
-                                        text: "Shut down after idle or removal"
+                                        text: (controller.featureStatus.autoPowerOff && controller.featureStatus.autoPowerOff.availability !== "unsupported") ? "Shut down after idle or removal" : "Not implemented in this Linux app for this model"
                                         color: window.txtFaint
                                         font.pixelSize: 11
                                         wrapMode: Text.WordWrap
@@ -1751,6 +1719,8 @@ ApplicationWindow {
 
                                 ComboBox {
                                     id: powerCombo
+                                    enabled: controller.connected && controller.featureStatus.autoPowerOff && controller.featureStatus.autoPowerOff.availability === "valid"
+                                    displayText: currentIndex < 0 ? "Unavailable" : currentText
                                     implicitWidth: 134
                                     implicitHeight: 38
                                     model: ["Off", "5 Minutes", "15 Minutes", "30 Minutes", "1 Hour", "3 Hours"]
@@ -1796,6 +1766,15 @@ ApplicationWindow {
                         }
                     }
 
+                    Text {
+                        Layout.fillWidth: true
+                        visible: controller.deviceName.indexOf("WH-1000XM4") !== -1
+                        text: "XM4 supports DSEE Extreme and automatic power-off, but this Linux app does not implement those controls yet. Adaptive Sound Control in Sony’s mobile app is a different feature from Adaptive Volume."
+                        wrapMode: Text.WordWrap
+                        font.pixelSize: 12
+                        lineHeight: 1.35
+                        color: window.txtDim
+                    }
                     Item { Layout.fillHeight: true }
                 }
             }
