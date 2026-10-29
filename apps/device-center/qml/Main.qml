@@ -295,7 +295,8 @@ ApplicationWindow {
             color: pill.active ? Qt.rgba(pill.tint.r, pill.tint.g, pill.tint.b, 0.16)
                  : pill.hovered ? window.surfaceHi : window.surface
             border.width: 1
-            border.color: pill.active ? Qt.rgba(pill.tint.r, pill.tint.g, pill.tint.b, 0.8)
+            border.color: pill.activeFocus ? window.accentSoft
+                        : pill.active ? Qt.rgba(pill.tint.r, pill.tint.g, pill.tint.b, 0.8)
                         : pill.hovered ? window.lineHi : window.line
 
             Behavior on color { ColorAnimation { duration: window.tBase } }
@@ -771,6 +772,13 @@ ApplicationWindow {
                             id: navItem
                             required property var modelData
                             readonly property bool current: window.navIndex === modelData.idx
+                            objectName: "navigation-" + modelData.idx
+                            activeFocusOnTab: true
+                            Accessible.role: Accessible.Button
+                            Accessible.name: window.tr(modelData.key)
+                            Accessible.onPressAction: window.navIndex = modelData.idx
+                            Keys.onReturnPressed: window.navIndex = modelData.idx
+                            Keys.onSpacePressed: window.navIndex = modelData.idx
 
                             width: parent.width
                             height: 44
@@ -779,6 +787,8 @@ ApplicationWindow {
                             Rectangle {
                                 anchors.fill: parent
                                 radius: 12
+                                border.width: navItem.activeFocus ? 1 : 0
+                                border.color: window.accentSoft
                                 color: (navHover.hovered && !navItem.current) ? window.surfaceHi : "transparent"
                                 Behavior on color { ColorAnimation { duration: window.tFast } }
                             }
@@ -846,7 +856,7 @@ ApplicationWindow {
                             }
                             Text {
                                 textFormat: Text.PlainText
-                                text: "IPC · RFCOMM V2"
+                                text: "Bluetooth · RFCOMM"
                                 color: window.txtFaint
                                 font.pixelSize: 10
                             }
@@ -1153,11 +1163,22 @@ ApplicationWindow {
                                 id: modeCard
                                 required property var modelData
                                 readonly property bool current: controller.noiseControlMode === modelData.mode
+                                activeFocusOnTab: true
+                                Accessible.role: Accessible.Button
+                                Accessible.name: modelData.label
+                                Accessible.onPressAction: selectMode()
+                                Keys.onReturnPressed: selectMode()
+                                Keys.onSpacePressed: selectMode()
+                                function selectMode() {
+                                    if (modelData.mode === "cancelling") controller.setAnc(true)
+                                    else if (modelData.mode === "ambient") controller.setAmbient(controller.ambientLevel, controller.focusOnVoice)
+                                    else controller.setNoiseControlOff()
+                                }
 
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 active: current
-                                hovered: modeHover.hovered
+                                hovered: modeHover.hovered || activeFocus
                                 scale: modeTap.pressed ? 0.975 : (modeHover.hovered ? 1.012 : 1.0)
 
                                 Behavior on scale {
@@ -1167,11 +1188,7 @@ ApplicationWindow {
                                 HoverHandler { id: modeHover; cursorShape: Qt.PointingHandCursor }
                                 TapHandler {
                                     id: modeTap
-                                    onTapped: {
-                                        if (modeCard.modelData.mode === "cancelling") controller.setAnc(true)
-                                        else if (modeCard.modelData.mode === "ambient") controller.setAmbient(controller.ambientLevel, controller.focusOnVoice)
-                                        else controller.setNoiseControlOff()
-                                    }
+                                    onTapped: modeCard.selectMode()
                                 }
 
                                 ColumnLayout {
@@ -1387,6 +1404,12 @@ ApplicationWindow {
                                 id: chip
                                 required property var modelData
                                 readonly property bool current: controller.equalizerPreset === modelData.id
+                                activeFocusOnTab: true
+                                Accessible.role: Accessible.Button
+                                Accessible.name: modelData.name
+                                Accessible.onPressAction: controller.setEqualizerPreset(modelData.id)
+                                Keys.onReturnPressed: controller.setEqualizerPreset(modelData.id)
+                                Keys.onSpacePressed: controller.setEqualizerPreset(modelData.id)
 
                                 width: chipText.implicitWidth + 30
                                 height: 38
@@ -1394,7 +1417,8 @@ ApplicationWindow {
                                 color: current ? Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.18)
                                      : chipHover.hovered ? window.surfaceHi : window.surface
                                 border.width: 1
-                                border.color: current ? Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.7)
+                                border.color: activeFocus ? window.accentSoft
+                                            : current ? Qt.rgba(window.accent.r, window.accent.g, window.accent.b, 0.7)
                                             : chipHover.hovered ? window.lineHi : window.line
 
                                 Behavior on color { ColorAnimation { duration: window.tFast } }

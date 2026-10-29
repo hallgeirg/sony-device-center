@@ -2,6 +2,8 @@
 
 # Sony Device Center
 
+Local Omarchy/Linux edition: see [build, installation and XM4 notes](docs/OMARCHY-LINUX.md).
+
 **An open-source desktop suite and C++20 SDK for Sony headphones and earbuds — Ambient Sound, Noise Cancelling, Equalizer, Clear Bass, DSEE, battery monitoring, and device control, without needing a mobile phone.**
 
 ---

@@ -39,7 +39,8 @@ endif()
 # The legacy ImGui client builds from CMake on Linux and Windows only; on
 # macOS its entry point and ImGui backend live in the Xcode project, so the
 # CMake target has no main() and cannot link. See docs/architecture-current.md.
-if(NOT APPLE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Client/CMakeLists.txt")
+option(SONY_BUILD_LEGACY_CLIENT "Build the separate legacy ImGui application" ON)
+if(SONY_BUILD_LEGACY_CLIENT AND NOT APPLE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Client/CMakeLists.txt")
     add_subdirectory(Client)
 endif()
 
